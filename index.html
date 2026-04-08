@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>チェックリスト</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        .input-area { margin-bottom: 20px; }
+        .controls { margin-top: 10px; }
+        ul { list-style: none; padding: 0; }
+        li { 
+            display: flex; align-items: center; 
+            margin-bottom: 8px; padding: 5px; border-bottom: 1px solid #eee;
+        }
+        .item-text { margin: 0 10px; flex-grow: 1; }
+        .delete-btn { 
+            background-color: #ff4d4d; color: white; border: none; 
+            padding: 5px 10px; cursor: pointer; border-radius: 3px;
+        }
+        input:checked + .item-text { text-decoration: line-through; color: #888; }
+        .save-btn { background-color: #4CAF50; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <h2>マイ・チェックリスト</h2>
+
+    <div class="input-area">
+        <input type="text" id="todoInput" placeholder="項目を入力してください">
+        <button onclick="addItem()">追加</button>
+    </div>
+
+    <ul id="todoList"></ul>
+
+    <div class="controls">
+        <button class="save-btn" onclick="saveData()">データを保存する</button>
+        <button onclick="shareAsJson()" style="padding: 10px 20px; cursor: pointer;">
+  チェック内容をJSONで共有する
+        </button>
+    </div>
+
+    <script>
+        async function shareAsJson() {
+  // ① チェックされた項目だけを集めてオブジェクトにする
+  const selectedItems = Array.from(document.querySelectorAll('#check-group input[type="checkbox"]:checked'))
+    .map(cb => ({
+      id: cb.value,
+      label: cb.getAttribute('data-label') || cb.parentElement.textContent.trim(),
+      checked: true,
+      timestamp: new Date().toISOString() // 送信時間などの付加情報
+    }));
+
+  // チェックが一つもない場合の処理
+  if (selectedItems.length === 0) {
+    alert("項目を一つ以上チェックしてください。");
+    return;
+  }
+
+  // ② データをJSON形式の文字列に変換
+  const jsonString = JSON.stringify(selectedItems, null, 2);
+
+  // ③ OS標準の共有メニューを呼び出す（Web Share API）
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'チェックリスト共有',
+        text: jsonString, // ここにJSONの中身がテキストとして入ります
+      });
+      console.log('共有に成功しました');
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        alert('共有に失敗しました: ' + error.message);
+      }
+    }
+  } else {
+    // 共有機能（Web Share API）に未対応のブラウザの場合
+    alert("お使いのブラウザは直接共有に対応していません。\n以下のJSONをコピーして利用してください：\n\n" + jsonString);
+  }
+        }
+        // ページを読み込んだ時に保存データを表示
+        window.onload = function() {
+            loadData();
+        };
+
+        function addItem(text = "", isChecked = false) {
+            const input = document.getElementById('todoInput');
+            const itemText = text || input.value.trim();
+
+            if (itemText === "") return;
+
+            const li = document.createElement('li');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = isChecked;
+
+            const span = document.createElement('span');
+            span.className = 'item-text';
+            span.textContent = itemText;
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = '削除';
+            deleteBtn.onclick = () => li.remove();
+
+            li.appendChild(checkbox);
+            li.appendChild(span);
+            li.appendChild(deleteBtn);
+            document.getElementById('todoList').appendChild(li);
+
+            input.value = "";
+        }
+
+        // データをブラウザに保存
+        function saveData() {
+            const items = [];
+            document.querySelectorAll('#todoList li').forEach(li => {
+                items.push({
+                    text: li.querySelector('.item-text').textContent,
+                    checked: li.querySelector('input[type="checkbox"]').checked
+                });
+            });
+            // 配列を文字列に変換して保存
+            localStorage.setItem('myTodoList', JSON.stringify(items));
+            alert("保存しました");
+        }
+
+        // 保存されたデータを読み込む
+        function loadData() {
+            const data = localStorage.getItem('myTodoList');
+            if (data) {
+                const items = JSON.parse(data);
+                items.forEach(item => addItem(item.text, item.checked));
+            }
+        }
+    </script>
+</body>
+</html>
